@@ -46,7 +46,7 @@ printWithTitle sheet s = do
 
 -- * Refs and formulas
 
-data CR = CR Int Int
+data CR = CR Int Int deriving(Show)
 
 crRange :: CR -> CR -> [CR]
 crRange (CR x y) (CR x' y') = [CR a b | a <- [x..x'], b <- [y..y'] ]
@@ -68,12 +68,13 @@ unRefS (Sheet cols) (CR c r) = case cellAt r (cols !! c) of
     _                    -> error "unRefS: only strings accepted in cells"
 
 data Formula a where
-    Frf  :: CR -> Formula CR
+    FnumCR:: CR -> Formula Double
     Fnum :: Double -> Formula Double
+    FMul :: Formula Double -> Formula Double -> Formula Double
     FDiv :: Formula Double -> Formula Double -> Formula Double
     FAdd :: Formula Double -> Formula Double -> Formula Double
+    FSub :: Formula Double -> Formula Double -> Formula Double
     FSum :: CR -> CR -> Formula Double
-    FSub :: CR -> CR -> Formula Double
     FSumL :: Char -> CR -> CR -> Formula Int
     FSumIf :: CR -> CR -> (Int -> Int) -> (Int -> Int) -> (Double -> Bool) -> Formula Double
 
@@ -81,12 +82,13 @@ instance Show (Formula a) where
     show _ = "$formula$"
 
 feval :: Sheet -> Formula a -> a
-feval _ (Frf cr) = cr
 feval _ (Fnum n) = n
+feval s (FnumCR cr) = unRef s cr
+feval s (FMul a b) = feval s a * feval s b
 feval s (FDiv a b) = feval s a / feval s b
 feval s (FAdd a b) = feval s a + feval s b
+feval s (FSub a b) = feval s a - feval s b
 feval s (FSum a b) = (sum . map (unRef s)) (crRange a b)
-feval s (FSub a b) = unRef s a - unRef s b
 
 feval s (FSumL c a b) = (fromIntegral . length . filter (== c) . concatMap (unRefS s)) (crRange a b)
 
