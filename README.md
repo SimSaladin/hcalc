@@ -8,6 +8,7 @@ Formula DSL
 
 hcalc contains a DSL for cell formulas similar to spreadsheet programs.
 Here is some grammar (in some cases whitespace can be added or omitted):
+
     expr      ::= d | simple_calc
     d         ::= function | parens | - d | cell_ref | constant
     function  ::= (fname params)
