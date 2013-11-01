@@ -74,7 +74,8 @@ data Formula a where
     FDiv :: Formula Double -> Formula Double -> Formula Double
     FAdd :: Formula Double -> Formula Double -> Formula Double
     FSub :: Formula Double -> Formula Double -> Formula Double
-    FSum :: CR -> CR -> Formula Double
+    FNeg :: Formula Double -> Formula Double
+    FSum :: (CR, CR) -> Formula Double
     FSumL :: Char -> CR -> CR -> Formula Int
     FSumIf :: CR -> CR -> (Int -> Int) -> (Int -> Int) -> (Double -> Bool) -> Formula Double
 
@@ -88,7 +89,8 @@ feval s (FMul a b) = feval s a * feval s b
 feval s (FDiv a b) = feval s a / feval s b
 feval s (FAdd a b) = feval s a + feval s b
 feval s (FSub a b) = feval s a - feval s b
-feval s (FSum a b) = (sum . map (unRef s)) (crRange a b)
+feval s (FNeg a)   = - feval s a
+feval s (FSum (a, b)) = (sum . map (unRef s)) (crRange a b)
 
 feval s (FSumL c a b) = (fromIntegral . length . filter (== c) . concatMap (unRefS s)) (crRange a b)
 

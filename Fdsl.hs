@@ -1,117 +1,102 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Fdsl where
+module Fdsl(formula) where
 
 import Hcalc
+
 import Text.ParserCombinators.Parsec
-import Control.Applicative hiding ((<|>), many, optional)
+import Text.ParserCombinators.Parsec.Expr
+import Text.ParserCombinators.Parsec.Language
+import qualified Text.ParserCombinators.Parsec.Token as Token
 
 import Data.Char     (ord)
 import Control.Monad (liftM)
-import Numeric (readSigned, readFloat)
 
+
+-- | This is used to get some basic parsers
+
+lexer :: Token.TokenParser st
+lexer = Token.makeTokenParser languageDef
+  where 
+    languageDef =
+        emptyDef { reservedOpNames = ["+", "-", "*", "/"]
+                 , reservedNames   = ["sum"]
+                 }
+
+reserved  :: String -> Parser ()
+reservedOp:: String -> Parser ()
+parens    :: Parser a -> Parser a
+float     :: Parser Double
+integer   :: Parser Integer
+natural   :: Parser Integer
+whiteSpace:: Parser ()
+
+reserved   = Token.reserved   lexer
+reservedOp = Token.reservedOp lexer
+parens     = Token.parens     lexer
+float      = Token.float      lexer
+integer    = Token.integer    lexer
+natural    = Token.natural    lexer
+whiteSpace = Token.whiteSpace lexer
+
+
+
+-- | Main expression parser (Double)
+dExpression :: Parser (Formula Double)
+dExpression = buildExpressionParser basicOperators dTerm
+
+basicOperators :: OperatorTable Char () (Formula Double)
+basicOperators = [ [prefix "-" FNeg, prefix "+" id]
+                 , [binary "*" FMul AssocLeft, binary "/" FDiv AssocLeft]
+                 , [binary "+" FAdd AssocLeft, binary "-" FSub AssocLeft]
+                 ]
+ 
+binary :: String -> (a -> a -> a) -> Assoc -> Operator Char () a
+prefix :: String -> (a -> a) -> Operator Char () a 
+
+binary  name fun assoc = Infix   (reservedOp name >> return fun) assoc
+prefix  name fun       = Prefix  (reservedOp name >> return fun)
+--postfix  name fun       = Postfix (reservedOp name >> return fun)
+
+-- | Double term parser
+dTerm :: Parser (Formula Double)
+dTerm =  try function
+     <|> parens dExpression
+     <|> liftM FnumCR cellRef -- Constant from a cell
+     <|> liftM Fnum constant  -- Literal constant
+     where constant = try float <|> liftM fromInteger integer
+
+function :: Parser (Formula Double)
+function = parens (reserved "sum" >> liftM FSum cellRange) 
+    -- <|> 
+    -- TODO: Write some kind of function list, for easy function adding
 
 -- | Parse excel like column string (containing chars ['A'..'Z']) to Int starting from 1. 
-pLetterInt :: Parser Int
-pLetterInt = let letters = many1 $ oneOf ['A' .. 'Z']
-                 toInt :: String -> Int
-                 toInt str = sum $ zipWith (\chr n -> (ord chr - 64) * (26 ^ n)) str ([0..] :: [Int])
-             in liftM toInt $ letters
-
-pInt :: (Integral a, Read a) => Parser a
-pInt = many1 digit >>= return . read
-
-ws :: Parser String
-ws = many $ oneOf " "
-
-lexeme :: Parser a -> Parser a
-lexeme p = ws *> p <* ws
-
-(<||>) :: Parser a -> Parser a -> Parser a
-p <||> q = try p <|> q
-
-pParentheses :: Parser a -> Parser a
-pParentheses p = char '(' *> p <* char ')'
-
--- | Parse double (as in Real World Haskell, p. 400)
-pDouble :: Parser (Formula Double)
-pDouble = do
-    s <- getInput
-    case readSigned readFloat s of
-        [(n,s')]  -> Fnum <$> (pure n <* setInput s')
-        _         -> fail "Error: Couldn't parse Double"
-
-
-pFDouble :: Parser (Formula Double)
-pFDouble = pSimpleCalc
-        <||> pSum -- TODO: pFunc
-        <||> (FnumCR <$> pCR) 
-        <||> pDouble
-
-
-pFLeftDouble :: Parser (Formula Double)
-pFLeftDouble = pSum -- TODO: pFunc
-        <||> (FnumCR <$> pCR) 
-        <||> pDouble
-
-
--- * Top-level Formula parsers
-
+col :: Parser Int
+col = let letters = many1 $ oneOf ['A' .. 'Z']
+          toInt :: String -> Int
+          toInt str = sum $ zipWith (\chr n -> (ord chr - 64) * (26 ^ n)) str ([0..] :: [Int])
+      in liftM toInt $ letters
 
 -- | <columnletters><rownumbers>
-pCR :: Parser CR
-pCR = do
-    columns <- pLetterInt
-    rows    <- pInt
-    return $ CR columns rows
+cellRef :: Parser CR
+cellRef = do
+    column <- col
+    row    <- natural
+    return $ CR column (fromInteger row)
 
 -- | <CR>:<CR>
-pCRRange :: Parser (CR,CR)
-pCRRange = do
-    a <- pCR
+cellRange :: Parser (CR,CR)
+cellRange = do
+    a <- cellRef
     char ':'
-    b <- pCR
+    b <- cellRef
     return (a,b)
 
--- | Template for simple calculations (+, /, *, etc.) with syntax: <FDouble> <symbol> <FDouble>
-simpleCalcParser :: Char 
-                 -> (Formula Double -> Formula Double -> Formula Double)
-                 -> Parser (Formula Double)
-simpleCalcParser symbol func = do
-   a <- pFLeftDouble
-   lexeme $ char symbol
-   b <- pFDouble
-   return $ func a b
 
---pAdd = FAdd <$> (pure pFDouble <* lexeme $ char '+') <*> pFDouble
-
-pAdd :: Parser (Formula Double)
-pAdd = simpleCalcParser '+' FAdd
-
-pSub :: Parser (Formula Double)
-pSub = simpleCalcParser '-' FSub
-
-pMul :: Parser (Formula Double)
-pMul = simpleCalcParser '*' FMul
-
-pDiv :: Parser (Formula Double)
-pDiv = simpleCalcParser '/' FDiv
-
-pSimpleCalc :: Parser (Formula Double)
-pSimpleCalc = pAdd <||> pSub <||> pMul <||> pDiv
-
--- | (sum <CRRange>)
-pSum :: Parser (Formula Double)
-pSum = (uncurry FSum) <$> pParentheses (string "sum" *> ws *> pCRRange)
-
-
---pFormula :: Parser (Formula Double)
---pFormula = 
-
-
-
+-- * Parse formula expression
 formula :: String -> Formula Double
-formula s = case parse pFDouble "(formula)" s of
+formula s = case parse (whiteSpace >> dExpression) "(formula)" s of
     Right f -> f
     Left e -> error . show $ e
 

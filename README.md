@@ -1,6 +1,30 @@
+hcalc
+=====
+
 hcalc is a spreadsheet toolkit for Haskell.
 
+Formula DSL
+-----------
+
+hcalc contains a DSL for cell formulas similar to spreadsheet programs.
+Here is some grammar (in some cases whitespace can be added or omitted):
+    expr      ::= d | simple_calc
+    d         ::= function | parens | - d | cell_ref | constant
+    function  ::= (fname params)
+    params    ::= param params | param
+    param     ::= d | cell_rang
+    parens    ::= (expr)
+    simple_calc::= d op d
+    op        ::= + | - | * | /
+    cell_rang ::= cell_ref:cell_ref
+    cell_ref  ::= <col><row>
+    col       ::= <capital letters>
+    row       ::= <digits>
+    constant  ::= <digits>[.<digits>]
+
+
 Example outputs
+---------------
 
 from `opsu.hs`:
 
@@ -129,3 +153,5 @@ from `verirahat.hs`:
               = TOT = |      2.00 |      2.00 |     0.00 |     0.00 | 4.00
                    /4 |           |           |          |          | 1.00
           maksettavaa |     -1.00 |     -1.00 |     1.00 |     1.00 |
+
+
