@@ -2,6 +2,7 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 import Hcalc
+import Fdsl
 default (Cell')
 
 t1 :: Sheet
@@ -46,8 +47,8 @@ t2 = colAlterAt 3 t1 $ const $ hcol ":: x"
 
 t3 :: Sheet
 t3 = let 
-    a1 = colAlterAt 2 t2 $ colInsAt 15 (Cell' $ CellJoin ["/", cellFormula (FSum (CR 2 1) (CR 2 14))])
-    a2 = colAlterAt 3 a1 $ colInsAt 15 (cellFormula (FSum (CR 3 1) (CR 3 14)))
+    a1 = colAlterAt 2 t2 $ colInsAt 15 (Cell' $ CellJoin ["/", cellFormula $ formula "(sum B1:B14)"]) -- (FSum (CR 2 1) (CR 2 14))])
+    a2 = colAlterAt 3 a1 $ colInsAt 15 (cellFormula $ formula "(sum C1:C14)") -- (FSum (CR 3 1) (CR 3 14)))
     a3 = colAlterAt 4 a2 $ colInsAt 15 (cellFormulaInt (FSumL 'x' (CR 4 1) (CR 4 14)))
     a4 = colAlterAt 5 a3 $ colInsAt 15 (cellFormulaInt (FSumL 'x' (CR 5 1) (CR 5 14)))
     a5 = colAlterAt 6 a4 $ colInsAt 15 (cellFormulaInt (FSumL 'x' (CR 6 1) (CR 6 14)))
