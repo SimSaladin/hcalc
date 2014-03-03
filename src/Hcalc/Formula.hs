@@ -1,8 +1,10 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, GADTs #-}
 
-module Fdsl(formula) where
-
-import Hcalc
+module Hcalc.Formula
+    ( Formula(..)
+    , CR
+    , formulaParse
+    ) where
 
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
@@ -12,9 +14,34 @@ import qualified Text.ParserCombinators.Parsec.Token as Token
 import Data.Char     (ord)
 import Control.Monad (liftM)
 
+-- | Parse formula expression.
+formulaParse :: String -> Formula Double
+formulaParse s = case parse (whiteSpace >> dExpression) "(formula)" s of
+    Right f -> f
+    Left e -> error . show $ e
+
+-- | Formula
+data Formula a where
+    FnumCR :: CR -> Formula Double
+    Fnum :: Double -> Formula Double
+    FMul :: Formula Double -> Formula Double -> Formula Double
+    FDiv :: Formula Double -> Formula Double -> Formula Double
+    FAdd :: Formula Double -> Formula Double -> Formula Double
+    FSub :: Formula Double -> Formula Double -> Formula Double
+    FNeg :: Formula Double -> Formula Double
+    FSum :: (CR, CR) -> Formula Double
+    FSumL :: Char -> CR -> CR -> Formula Int
+    FSumIf :: CR -> CR -> (Int -> Int) -> (Int -> Int) -> (Double -> Bool) -> Formula Double
+instance Show (Formula a) where
+    show _ = "$formula$"
+
+-- | Cell Reference (row, col)
+type CR = (Int, Int)
+
+
+-- * Internal
 
 -- | This is used to get some basic parsers
-
 lexer :: Token.TokenParser st
 lexer = Token.makeTokenParser languageDef
   where 
@@ -23,14 +50,11 @@ lexer = Token.makeTokenParser languageDef
                  , reservedNames   = ["sum"]
                  }
 
-reserved  :: String -> Parser ()
-reservedOp:: String -> Parser ()
-parens    :: Parser a -> Parser a
-float     :: Parser Double
-integer   :: Parser Integer
-natural   :: Parser Integer
-whiteSpace:: Parser ()
-
+reserved, reservedOp :: String -> Parser ()
+parens               :: Parser a -> Parser a
+float                :: Parser Double
+integer, natural     :: Parser Integer
+whiteSpace           :: Parser ()
 reserved   = Token.reserved   lexer
 reservedOp = Token.reservedOp lexer
 parens     = Token.parens     lexer
@@ -38,8 +62,6 @@ float      = Token.float      lexer
 integer    = Token.integer    lexer
 natural    = Token.natural    lexer
 whiteSpace = Token.whiteSpace lexer
-
-
 
 -- | Main expression parser (Double)
 dExpression :: Parser (Formula Double)
@@ -83,7 +105,7 @@ cellRef :: Parser CR
 cellRef = do
     column <- col
     row    <- natural
-    return $ CR column (fromInteger row)
+    return (column, fromInteger row)
 
 -- | <CR>:<CR>
 cellRange :: Parser (CR,CR)
@@ -92,11 +114,3 @@ cellRange = do
     char ':'
     b <- cellRef
     return (a,b)
-
-
--- * Parse formula expression
-formula :: String -> Formula Double
-formula s = case parse (whiteSpace >> dExpression) "(formula)" s of
-    Right f -> f
-    Left e -> error . show $ e
-
