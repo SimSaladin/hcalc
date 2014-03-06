@@ -25,5 +25,10 @@ library
   other-extensions:    OverloadedStrings, GADTs, FlexibleInstances, ExistentialQuantification, ExtendedDefaultRules
   build-depends:       base >=4.6 && <4.7
                      , parsec >=3.1 && <3.2
+                     , csv
   hs-source-dirs:      src
   default-language:    Haskell2010
+
+executable hcalc
+   main-is: main.hs
+   build-depends: base, hcalc

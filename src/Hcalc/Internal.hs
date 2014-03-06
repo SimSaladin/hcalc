@@ -8,6 +8,7 @@ module Hcalc.Internal where
 import Data.String
 import Text.Printf
 import Hcalc.Formula
+import Text.Read (readMaybe)
 
 -- * Sheets
 
@@ -70,6 +71,9 @@ cellAt 0 (Col c  _) = c
 cellAt n (Col _ cs) = cellAt (n-1) cs
 cellAt _ ColEmpty   = Cell' CellEmpty
 
+toCols :: [[Cell']] -> [Col]
+toCols = map (foldl (flip Col) ColEmpty)
+
 -- * Cells
 
 data Cell a where
@@ -118,6 +122,11 @@ showCellEval' _     (Cell' (CellString s))     = s
 showCellEval' sh (Cell' (CellFormula f))    = printf "%.2f" $ feval sh f
 showCellEval' sh (Cell' (CellFormulaInt f)) = printf "%d" $ feval sh f
 showCellEval' _ c = show c
+
+parseCell :: String -> Cell'
+parseCell ""       = toCell CellEmpty
+parseCell ('$':xs) = toCell $ CellFormula $ formulaParse $ init xs
+parseCell str      = maybe (toCell $ CellString str) (toCell . CellDouble) $ readMaybe str
 
 -- * Refs
 

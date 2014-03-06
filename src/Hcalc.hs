@@ -37,12 +37,18 @@ module Hcalc
     , Formula(..)
 
     -- * Import
+    , fromCSV
     -- * Export
     , 
     ) where
 
 import Hcalc.Internal
 import Hcalc.Formula
+
+import Control.Monad
+import Text.CSV
+import Text.Parsec.Error
+import qualified Data.List as L
 
 -- Huh?
 colNames :: String
@@ -107,3 +113,14 @@ formula' = Cell' . CellFormula
 
 formulaInt' :: Formula Int -> Cell'
 formulaInt' = Cell' . CellFormulaInt
+
+-- * From File
+
+fromCSV :: FilePath -> IO (Either ParseError Sheet)
+fromCSV path = fmap (f . init) `liftM` parseCSVFromFile path
+  where
+      f (x:xs) =
+          let headers = map (toCell . CellHeader) x
+              cells = map (map parseCell) xs
+            in sheet $ toCols $ map reverse $ L.transpose (headers : cells)
+
